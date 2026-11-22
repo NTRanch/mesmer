@@ -1,0 +1,14 @@
+# Block: set-up / permission (session position 1). Structural
+# placeholder copy, estate-original; composition is R3.
+schema = 1
+kind = "setup_permission"
+
+[[template]]
+id = "setup_permission.standard"
+classes = []
+slots = [
+    { name = "session_title", type = "text", max_chars = 80 },
+    { name = "stop_cue", type = "text", max_chars = 40 },
+    { name = "envelope_summary", type = "text", max_chars = 400 },
+]
+text = "[SET-UP] Name the session: {session_title}. Restate the consented envelope: {envelope_summary}. State the stop cue, {stop_cue}, and that it ends the session at once and brings her up. Invite permission to begin."

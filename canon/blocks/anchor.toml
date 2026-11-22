@@ -1,0 +1,14 @@
+# Block: anchor installation (session position 5). Every trigger
+# is registered with its removal procedure at installation (§3.5).
+schema = 1
+kind = "anchor"
+
+[[template]]
+id = "anchor.pair_at_peak"
+classes = ["trigger_installation", "accumulation_programme"]
+slots = [
+    { name = "cue", type = "text", max_chars = 40 },
+    { name = "response", type = "text", max_chars = 120 },
+    { name = "removal_procedure", type = "text", max_chars = 200 },
+]
+text = "[ANCHOR] At peak, pair {cue} with {response}. Register removal: {removal_procedure}."

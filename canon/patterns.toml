@@ -1,0 +1,58 @@
+# mesmer canon — suggestion-craft pattern shapes (PLAN §4).
+#
+# Composable grammar data, not prose. Each pattern is an ordered
+# sequence of elements; an element is a role repeated between
+# repeat_min and repeat_max times (inclusive). `composes_with`
+# names patterns that may follow this one inside a suggestion
+# block. The composer (R3) assembles text from these shapes; R1
+# ships and validates the shapes only.
+
+schema = 1
+
+[[pattern]]
+id = "pacing_and_leading"
+summary = "State verifiable present experience, then lead one step past it."
+elements = [
+    { role = "pace", repeat_min = 2, repeat_max = 4 },
+    { role = "lead", repeat_min = 1, repeat_max = 1 },
+]
+composes_with = ["yes_set", "embedded_command", "future_pacing"]
+
+[[pattern]]
+id = "embedded_command"
+summary = "A directive marked out inside a longer permissive sentence."
+elements = [
+    { role = "frame", repeat_min = 1, repeat_max = 1 },
+    { role = "command", repeat_min = 1, repeat_max = 1 },
+    { role = "frame", repeat_min = 0, repeat_max = 1 },
+]
+composes_with = ["pacing_and_leading", "convincer"]
+
+[[pattern]]
+id = "yes_set"
+summary = "A run of statements the listener can only agree with, then the suggestion."
+elements = [
+    { role = "agreement", repeat_min = 3, repeat_max = 5 },
+    { role = "lead", repeat_min = 1, repeat_max = 1 },
+]
+composes_with = ["embedded_command", "convincer"]
+
+[[pattern]]
+id = "convincer"
+summary = "A small early proof: suggest an easy effect, notice it, ratify it."
+elements = [
+    { role = "test", repeat_min = 1, repeat_max = 1 },
+    { role = "notice", repeat_min = 1, repeat_max = 2 },
+    { role = "ratify", repeat_min = 1, repeat_max = 1 },
+]
+composes_with = ["pacing_and_leading", "future_pacing"]
+
+[[pattern]]
+id = "future_pacing"
+summary = "Rehearse the suggestion in a named, bounded future context."
+elements = [
+    { role = "context", repeat_min = 1, repeat_max = 1 },
+    { role = "rehearse", repeat_min = 1, repeat_max = 3 },
+    { role = "expiry", repeat_min = 1, repeat_max = 1 },
+]
+composes_with = []

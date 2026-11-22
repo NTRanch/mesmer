@@ -1,0 +1,11 @@
+# Block: aftercare (session position 7).
+schema = 1
+kind = "aftercare"
+
+[[template]]
+id = "aftercare.settle"
+classes = []
+slots = [
+    { name = "settle_seconds", type = "seconds", min = 30, max = 600 },
+]
+text = "[AFTERCARE] Settle for {settle_seconds}: breath, water, orientation; remind her the disclosure log is hers to read."

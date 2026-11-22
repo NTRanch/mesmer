@@ -1,0 +1,13 @@
+# Block: grounding (standalone, outside the session order). The
+# §3.5 off-ramp: trigger clearing and baseline return, always
+# available, never disabled by any session or programme.
+schema = 1
+kind = "grounding"
+
+[[template]]
+id = "grounding.baseline_return"
+classes = []
+slots = [
+    { name = "triggers_to_clear", type = "count", min = 0, max = 64 },
+]
+text = "[GROUNDING] Clear {triggers_to_clear} registered triggers by their removal procedures; return to baseline; orient fully."

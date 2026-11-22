@@ -1,0 +1,25 @@
+# mesmer canon — audio encoding parameters (single source).
+#
+# Imported from the estate technique spec (T1/T2 SSB-AM, Addition D
+# production law). Consumers render; mesmer only specifies. A
+# subliminal layer is specified by depth below the bed
+# (level_db < 0), never by an absolute level.
+
+schema = 1
+
+[ssb_am]
+fixed_carrier_hz = 16000
+adjustable_carrier_min_hz = 14000
+adjustable_carrier_max_hz = 20000
+practical_window_min_hz = 16000
+practical_window_max_hz = 17500
+practical_sample_rates_hz = [44100, 48000]
+
+[production]
+sample_rate_hz = 48000
+integrated_loudness_lufs = -16.0
+true_peak_max_dbtp = -1.0
+
+[subliminal]
+level_reference = "below_bed"
+level_db_max_exclusive = 0.0

@@ -1,0 +1,11 @@
+# Block: emergence (session position 6). Also what the stop cue fires.
+schema = 1
+kind = "emergence"
+
+[[template]]
+id = "emergence.count_up"
+classes = []
+slots = [
+    { name = "count_to", type = "count", min = 3, max = 10 },
+]
+text = "[EMERGENCE] Count up to {count_to}; return to full alertness, oriented to time and place, all session-scoped suggestions closed."

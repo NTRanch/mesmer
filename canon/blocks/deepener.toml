@@ -1,0 +1,20 @@
+# Block: deepener (session position 3).
+schema = 1
+kind = "deepener"
+
+[[template]]
+id = "deepener.countdown"
+classes = ["relaxation_descent"]
+slots = [
+    { name = "count_from", type = "count", min = 5, max = 20 },
+]
+text = "[DEEPENER: COUNTDOWN] Count down from {count_from}; pair each number with a step of descent."
+
+[[template]]
+id = "deepener.staircase"
+classes = ["relaxation_descent", "fantasy_immersion"]
+slots = [
+    { name = "steps", type = "count", min = 5, max = 20 },
+    { name = "place", type = "text", max_chars = 80 },
+]
+text = "[DEEPENER: STAIRCASE] Descend {steps} steps toward {place}; each step deeper."

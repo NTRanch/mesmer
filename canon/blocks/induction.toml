@@ -1,0 +1,56 @@
+# Block: induction (session position 2). One template per family.
+# Rapid induction is flagged live_context: canonised for
+# completeness, rarely the right package choice.
+schema = 1
+kind = "induction"
+
+[[template]]
+id = "induction.eye_fixation"
+family = "eye_fixation"
+live_context = false
+classes = ["relaxation_descent"]
+slots = [
+    { name = "focus_point", type = "text", max_chars = 80 },
+    { name = "fixation_seconds", type = "seconds", min = 20, max = 180 },
+]
+text = "[INDUCTION: EYE FIXATION] Direct attention to {focus_point}. Hold the fixation for {fixation_seconds}. Pace eyelid heaviness; lead to eye closure."
+
+[[template]]
+id = "induction.progressive_relaxation"
+family = "progressive_relaxation"
+live_context = false
+classes = ["relaxation_descent"]
+slots = [
+    { name = "body_regions", type = "count", min = 3, max = 12 },
+]
+text = "[INDUCTION: PROGRESSIVE RELAXATION] Walk release through {body_regions} body regions, head to feet, one breath per region."
+
+[[template]]
+id = "induction.fractionation"
+family = "fractionation"
+live_context = false
+classes = ["relaxation_descent"]
+slots = [
+    { name = "cycles", type = "count", min = 2, max = 6 },
+]
+text = "[INDUCTION: FRACTIONATION] Run {cycles} cycles of brief emergence and re-descent; frame each return as deeper than the last."
+
+[[template]]
+id = "induction.confusion_overload"
+family = "confusion_overload"
+live_context = false
+classes = ["relaxation_descent"]
+slots = [
+    { name = "parallel_threads", type = "count", min = 2, max = 4 },
+]
+text = "[INDUCTION: CONFUSION / OVERLOAD] Interleave {parallel_threads} attention threads until following them is effortful; offer descent as the relief."
+
+[[template]]
+id = "induction.rapid"
+family = "rapid"
+live_context = true
+classes = ["relaxation_descent"]
+slots = [
+    { name = "drop_cue", type = "text", max_chars = 40 },
+]
+text = "[INDUCTION: RAPID — LIVE CONTEXT] Pre-framed drop on {drop_cue}. Flagged: live-context technique."

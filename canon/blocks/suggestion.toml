@@ -1,0 +1,14 @@
+# Block: suggestion body (session position 4). The body is
+# assembled from canon/patterns.toml shapes by the composer (R3);
+# this template is the frame those shapes slot into.
+schema = 1
+kind = "suggestion"
+
+[[template]]
+id = "suggestion.body"
+classes = ["sensory_amplification", "sensory_creation", "arousal_shaping", "orgasm_control", "identity_affirmation", "submission_headspace", "fantasy_immersion", "amnesia_framing"]
+slots = [
+    { name = "pattern_sequence", type = "text", max_chars = 200 },
+    { name = "repetitions", type = "count", min = 1, max = 12 },
+]
+text = "[SUGGESTION BODY] Assemble {pattern_sequence} from the pattern grammar; repeat the core suggestion {repetitions} times."

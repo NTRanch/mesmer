@@ -1,0 +1,26 @@
+[package]
+name = "mesmer"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "mesmer — a deterministic, consent-gated hypnosis content composer MCP server (Nice Thoughts Ranch). R1 canon data + types, R2 consent gate. Modern MCP era only (2026-07-28)."
+readme = "README.md"
+
+[workspace]
+members = ["."]
+resolver = "3"
+
+[lib]
+name = "mesmer"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = { version = "=0.8.23", default-features = false, features = ["parse"] }
+
+[profile.release]
+overflow-checks = true
+
+[lints.rust]
+unsafe_code = "forbid"

@@ -1,0 +1,193 @@
+# mesmer canon — the effect-class taxonomy (PLAN §4).
+#
+# CLOSED: an id not declared here does not exist. The Rust enum
+# `EffectClass` and this file must agree exactly (validated at
+# startup); any other id fails to parse. Sissification and femdom
+# are absent by the PLAN §1 ruling — not disabled entries,
+# nonexistent ones.
+#
+# Grades: PLAN §4 grades techniques. A class's grade is the grade
+# of its primary (load-bearing) technique; the validator enforces
+# that agreement. Grade C techniques must carry an honesty note.
+#
+# Bounds: `max_intensity` is on the 1..=10 intensity scale and
+# caps the class regardless of the profile ceiling (the effective
+# cap is the lower of the two). `scope` is "session_only" (nothing
+# of this class may persist past its session, under any grant) or
+# "persistable" (may persist only under the matching grant).
+# Amnesia framing is session_only by canon law. `requires_grant`
+# names a grant the profile must hold before the class is usable.
+
+schema = 1
+taxonomy_version = 1
+
+# ── Techniques (PLAN §4) ─────────────────────────────────────────
+
+[[technique]]
+id = "session_architecture"
+grade = "A"
+note = "Estate T6 frame: set-up/permission, induction, deepener, suggestion, anchor, emergence, aftercare."
+
+[[technique]]
+id = "induction_families"
+grade = "A"
+note = "Eye fixation, progressive relaxation, fractionation, confusion/overload, rapid (live-context)."
+
+[[technique]]
+id = "suggestion_craft"
+grade = "A"
+note = "Pacing-and-leading, direct and indirect forms, embedded commands, yes-sets, convincers, future pacing, metaphor frames."
+
+[[technique]]
+id = "anchors_and_triggers"
+grade = "A"
+note = "Installation by pairing at peak, firing, scheduled reinforcement, registered removal."
+
+[[technique]]
+id = "affirmation_loops"
+grade = "A"
+note = "Estate T4 grammar: small closed set, present tense, cue phrase per cycle, high repetition density."
+
+[[technique]]
+id = "post_hypnotic_framing_with_expiry"
+grade = "A"
+note = "Suggestions scoped to a context and a lifetime, never open-ended by default."
+
+[[technique]]
+id = "ssb_am_subliminal"
+grade = "B"
+note = "T1/T2 encoding; real as construction, its effect rides on Grade A mechanisms."
+
+[[technique]]
+id = "drone_layer"
+grade = "B"
+note = "T5 drone bed."
+
+[[technique]]
+id = "layer_subset_editions"
+grade = "B"
+note = "T8 full / lite / subliminal-only mixes of one master session."
+
+[[technique]]
+id = "binaural_pacing_curve"
+grade = "B"
+note = "Carrier plus per-phase beat pacing as an attention aid and session clock."
+
+[[technique]]
+id = "visual_fixation"
+grade = "B"
+note = "T9 looping visual anchors, flash-text cues, seeded spiral/overlay specs."
+
+[[technique]]
+id = "binaural_entrainment_claims"
+grade = "C"
+note = "Alpha/theta/delta frequency tables as marketed."
+honesty_note = "Genre theatre: the pacing curve is real tooling; brainwave-entrainment claims outrun the evidence."
+
+[[technique]]
+id = "subliminal_persuasion_claims"
+grade = "C"
+note = "Subliminal persuasion strength as popularly claimed."
+honesty_note = "Genre theatre: hidden layers work through expectation, ritual, and repetition; mesmer never promises change against a preference the listener does not hold."
+
+# ── Effect classes (the consent profile's vocabulary) ────────────
+
+[[class]]
+id = "relaxation_descent"
+label = "Relaxation / descent"
+grade = "A"
+primary_technique = "induction_families"
+techniques = ["induction_families", "session_architecture", "binaural_pacing_curve", "binaural_entrainment_claims"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "sensory_amplification"
+label = "Sensory amplification"
+grade = "A"
+primary_technique = "suggestion_craft"
+techniques = ["suggestion_craft", "visual_fixation"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "sensory_creation"
+label = "Sensory creation (suggested touch, warmth, restriction)"
+grade = "A"
+primary_technique = "suggestion_craft"
+techniques = ["suggestion_craft"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "arousal_shaping"
+label = "Arousal shaping"
+grade = "A"
+primary_technique = "suggestion_craft"
+techniques = ["suggestion_craft", "anchors_and_triggers", "binaural_pacing_curve"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "orgasm_control"
+label = "Orgasm control (permission / denial framing)"
+grade = "A"
+primary_technique = "suggestion_craft"
+techniques = ["suggestion_craft", "post_hypnotic_framing_with_expiry"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "identity_affirmation"
+label = "Identity affirmation"
+grade = "A"
+primary_technique = "affirmation_loops"
+techniques = ["affirmation_loops", "ssb_am_subliminal", "layer_subset_editions", "subliminal_persuasion_claims"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "submission_headspace"
+label = "Submission headspace"
+grade = "A"
+primary_technique = "suggestion_craft"
+techniques = ["suggestion_craft", "session_architecture"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "fantasy_immersion"
+label = "Fantasy immersion"
+grade = "A"
+primary_technique = "suggestion_craft"
+techniques = ["suggestion_craft", "visual_fixation"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "trigger_installation"
+label = "Trigger installation"
+grade = "A"
+primary_technique = "anchors_and_triggers"
+techniques = ["anchors_and_triggers", "post_hypnotic_framing_with_expiry"]
+max_intensity = 10
+scope = "persistable"
+
+[[class]]
+id = "amnesia_framing"
+label = "Amnesia framing (session-scoped only; the disclosure record is part of consenting to this class)"
+grade = "A"
+primary_technique = "post_hypnotic_framing_with_expiry"
+techniques = ["post_hypnotic_framing_with_expiry", "suggestion_craft"]
+max_intensity = 10
+scope = "session_only"
+
+[[class]]
+id = "accumulation_programme"
+label = "Accumulation / programme work"
+grade = "A"
+primary_technique = "affirmation_loops"
+techniques = ["affirmation_loops", "anchors_and_triggers", "ssb_am_subliminal", "drone_layer", "subliminal_persuasion_claims"]
+max_intensity = 10
+scope = "persistable"
+requires_grant = "longitudinal"
