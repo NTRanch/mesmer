@@ -14,10 +14,18 @@ resolver = "3"
 name = "mesmer"
 path = "src/lib.rs"
 
+[[bin]]
+name = "mesmer"
+path = "src/main.rs"
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = { version = "=0.8.23", default-features = false, features = ["parse"] }
+# Fleet pin (D-113): one rmcp version across every estate server;
+# bumps are single fleet events. Modern era only — see src/guard.rs.
+rmcp = { version = "=3.8.0", default-features = false, features = ["server"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt-multi-thread", "sync", "time"] }
 
 [profile.release]
 overflow-checks = true

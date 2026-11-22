@@ -156,6 +156,49 @@ fn v_grade_c_techniques_carry_honesty_notes() {
     );
 }
 
+#[test]
+fn v_class_grades_agree_with_primary_technique() {
+    let canon = Canon::embedded().unwrap();
+    for class in &canon.effects.class {
+        let primary = canon
+            .effects
+            .technique
+            .iter()
+            .find(|t| t.id == class.primary_technique)
+            .unwrap();
+        assert_eq!(primary.grade, class.grade, "{}", class.id);
+        assert!(class.techniques.contains(&class.primary_technique));
+    }
+}
+
+#[test]
+fn v_canon_load_is_deterministic() {
+    let a = serde_json::to_string(&Canon::embedded().unwrap()).unwrap();
+    let b = serde_json::to_string(&Canon::embedded().unwrap()).unwrap();
+    assert_eq!(a, b);
+}
+
+#[test]
+fn v_every_block_template_declares_typed_slots() {
+    let canon = Canon::embedded().unwrap();
+    let mut templates = 0;
+    for file in canon.blocks.values() {
+        for t in &file.template {
+            templates += 1;
+            assert!(
+                t.id.starts_with(serde_json::to_value(file.kind).unwrap().as_str().unwrap()),
+                "{} under {:?}",
+                t.id,
+                file.kind
+            );
+            for slot in &t.slots {
+                assert!(t.text.contains(&format!("{{{}}}", slot.name())), "{}", t.id);
+            }
+        }
+    }
+    assert_eq!(templates, 13);
+}
+
 // ── Adversarial half ─────────────────────────────────────────────
 
 #[test]
