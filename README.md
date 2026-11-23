@@ -18,7 +18,11 @@ herself; the profile's envelope bounds every class, intensity,
 and grant; and a full disclosure log records everything
 delivered. The design is specified in `docs/PLAN.md`.
 
-Status: R1 (canon data + types) and R2 (the consent gate) in
-build, 2026-11-20.
+Status: production 1.0.0, 2026-11-23 — canon, the consent gate,
+theme-pack delivery (bimbo glamour; subliminal submissive
+training), and the standard engagement trigger. Deployed on
+primo as a socket-activated systemd user service
+(`mesmer.socket` / `mesmer@.service`); the binary is
+`~/.local/bin/mesmer`.
 
 A Nice Thoughts Ranch project.
