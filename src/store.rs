@@ -6,8 +6,7 @@
 //! ([`ProfileId`]), so a path built from one cannot leave
 //! `profiles/`. Writes are atomic (temp file + fsync + rename);
 //! disclosure lines are appended and synced one record at a time.
-//! R2 writes profile lifecycle and revocation records; the full
-//! delivered-package log is R4.
+//! The log records profile lifecycle and pre-delivery disclosures.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
@@ -30,13 +29,14 @@ fn io_error(context: &str, e: &std::io::Error) -> MesmerError {
     MesmerError::new("MESMER-STORE-IO", format!("{context}: {e}"))
 }
 
-/// Lifecycle events the disclosure seam records in R2.
+/// Events recorded by the append-only disclosure log.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DisclosureEvent {
     ProfileCreated,
     ProfileAmended,
     ProfileRevoked,
+    DeliveryDisclosed,
 }
 
 /// One disclosure line.

@@ -2,7 +2,7 @@
 #
 # CLOSED: an id not declared here does not exist. The Rust enum
 # `EffectClass` and this file must agree exactly (validated at
-# startup); any other id fails to parse. Sissification and femdom
+# build time); any other id fails to parse. Sissification and femdom
 # are absent by the PLAN §1 ruling — not disabled entries,
 # nonexistent ones.
 #
@@ -20,6 +20,7 @@
 
 schema = 1
 taxonomy_version = 1
+cadence_cap_per_session = 1
 
 # ── Techniques (PLAN §4) ─────────────────────────────────────────
 

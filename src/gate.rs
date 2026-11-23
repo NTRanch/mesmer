@@ -16,6 +16,12 @@ use crate::consent::{ConsentProfile, SessionContext, SessionRequest};
 /// The refusal taxonomy (fleet convention: stable `MESMER-*` codes).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum RefusalCode {
+    #[serde(rename = "MESMER-SESSION-INVALID")]
+    SessionInvalid,
+    #[serde(rename = "MESMER-CADENCE-CAP")]
+    CadenceCap,
+    #[serde(rename = "MESMER-DISCLOSURE-FAILED")]
+    DisclosureFailed,
     #[serde(rename = "MESMER-NO-PROFILE")]
     NoProfile,
     #[serde(rename = "MESMER-ENVELOPE-CLASS")]
@@ -33,6 +39,9 @@ pub enum RefusalCode {
 impl RefusalCode {
     pub fn as_str(self) -> &'static str {
         match self {
+            RefusalCode::DisclosureFailed => "MESMER-DISCLOSURE-FAILED",
+            RefusalCode::CadenceCap => "MESMER-CADENCE-CAP",
+            RefusalCode::SessionInvalid => "MESMER-SESSION-INVALID",
             RefusalCode::NoProfile => "MESMER-NO-PROFILE",
             RefusalCode::EnvelopeClass => "MESMER-ENVELOPE-CLASS",
             RefusalCode::GrantAbsent => "MESMER-GRANT-ABSENT",
@@ -57,6 +66,20 @@ impl Refusal {
             detail: detail.into(),
         }
     }
+}
+
+pub(crate) fn invalid_session() -> Refusal {
+    Refusal::new(
+        RefusalCode::SessionInvalid,
+        "an active session handle is required",
+    )
+}
+
+pub(crate) fn disclosure_failed() -> Refusal {
+    Refusal::new(
+        RefusalCode::DisclosureFailed,
+        "delivery disclosure could not be recorded",
+    )
 }
 
 /// The gate's verdict. `Refuse` is never empty.
@@ -108,6 +131,32 @@ pub fn decide(
     } else {
         Decision::Refuse(refusals)
     }
+}
+
+/// Apply the session's server-owned delivery count after the envelope checks.
+pub(crate) fn decide_delivery(
+    canon: &Canon,
+    profile: &ConsentProfile,
+    now: i64,
+    request: &SessionRequest,
+    deliveries: u8,
+) -> Decision {
+    let context = SessionContext {
+        now_unix_s: now,
+        session_active: true,
+    };
+    let mut decision = decide(canon, Some(profile), &context, request);
+    if deliveries >= canon.effects.cadence_cap_per_session {
+        let refusal = Refusal::new(
+            RefusalCode::CadenceCap,
+            "session delivery cadence cap reached",
+        );
+        match &mut decision {
+            Decision::Allow => decision = Decision::Refuse(vec![refusal]),
+            Decision::Refuse(refusals) => refusals.push(refusal),
+        }
+    }
+    decision
 }
 
 fn check_classes(

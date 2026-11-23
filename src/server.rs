@@ -8,7 +8,7 @@
 //! sees it.
 
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rmcp::model::{
@@ -64,15 +64,15 @@ pub fn tool_specs() -> Vec<Spec> {
     vec![
         (
             "consent_profile_create",
-            "Create a consent profile (the consent act; alert state only). Requires adult_attested=true. Grants are separate and default off; longitudinal needs programme terms. Inverse: consent_revoke.",
+            "Create a consent profile and open a session (the consent act; alert state only). Returns a session handle. Requires adult_attested=true. Grants are separate and default off; longitudinal needs programme terms. Inverse: consent_revoke.",
             json!({"type": "object", "properties": {
-                "profile_id": id, "in_session": {"type": "boolean"},
+                "profile_id": id,
                 "profile": {"type": "object", "properties": {
                     "adult_attested": {"type": "boolean"}, "allowed_classes": classes,
                     "exclusions": exclusions, "intensity_ceiling": intensity,
                     "max_session_minutes": minutes, "grants": grants, "programme": programme},
                     "required": ["adult_attested", "allowed_classes", "intensity_ceiling", "max_session_minutes"]}},
-                "required": ["profile_id", "in_session", "profile"]}),
+                "required": ["profile_id", "profile"]}),
             (false, false, false),
         ),
         (
@@ -83,27 +83,28 @@ pub fn tool_specs() -> Vec<Spec> {
         ),
         (
             "consent_profile_amend",
-            "Amend a profile. Narrowing is always allowed; widening is refused while in_session (MESMER-WIDEN-IN-SESSION). Inverse: consent_revoke.",
+            "Amend a profile. Narrowing is always allowed; widening is refused while a server session is active (MESMER-WIDEN-IN-SESSION). Inverse: consent_revoke.",
             json!({"type": "object", "properties": {
-                "profile_id": id, "in_session": {"type": "boolean"},
+                "profile_id": id,
                 "changes": {"type": "object", "properties": {
                     "allowed_classes": classes, "exclusions": exclusions,
                     "intensity_ceiling": intensity, "max_session_minutes": minutes,
                     "grants": grants, "programme": programme}}},
-                "required": ["profile_id", "in_session", "changes"]}),
+                "required": ["profile_id", "changes"]}),
             (false, false, false),
         ),
         (
             "consent_revoke",
-            "Total revocation, always available from any state: deletes the profile and records it in the disclosure log.",
+            "Total revocation from any state: closes the session, deletes the profile, and records revocation.",
             json!({"type": "object", "properties": {"profile_id": id}, "required": ["profile_id"]}),
             (false, true, true),
         ),
         (
             "envelope_check",
-            "Preview decide(): would this typed request be allowed, and every refusal with its MESMER code. Free-text notes are never judged.",
+            "Preview the typed request against an active session, including its remaining cadence. Returns every MESMER refusal. Free-text notes are never judged.",
             json!({"type": "object", "properties": {
                 "profile_id": id,
+                "session_handle": {"type": "string"},
                 "request": {"type": "object", "properties": {
                     "classes": classes, "intensity": intensity, "duration_minutes": minutes,
                     "subliminal_layer": {"type": "object", "properties": {
@@ -112,7 +113,7 @@ pub fn tool_specs() -> Vec<Spec> {
                     "programme_scoped": {"type": "boolean"},
                     "notes": {"type": "string"}},
                     "required": ["classes", "intensity", "duration_minutes"]}},
-                "required": ["profile_id", "request"]}),
+                "required": ["profile_id", "session_handle", "request"]}),
             READ,
         ),
         (
@@ -166,13 +167,13 @@ fn render(result: Result<Value, MesmerError>) -> CallToolResult {
 }
 
 pub struct MesmerServer {
-    state: Arc<Mutex<Mesmer>>,
+    state: Arc<Mesmer>,
 }
 
 impl MesmerServer {
     pub fn new(state: Mesmer) -> Self {
         MesmerServer {
-            state: Arc::new(Mutex::new(state)),
+            state: Arc::new(state),
         }
     }
 }
@@ -219,10 +220,9 @@ impl ServerHandler for MesmerServer {
         let arguments = Value::Object(request.arguments.unwrap_or_default());
         let state = Arc::clone(&self.state);
         let work = tokio::task::spawn_blocking(move || {
-            let result = match (state.lock(), now_unix_s()) {
-                (Ok(guard), Some(now)) => tools::dispatch(&guard, &name, &arguments, now),
-                (Ok(_), None) => Err(MesmerError::new("MESMER-CLOCK", "system clock unreadable")),
-                (Err(_), _) => Err(MesmerError::new("internal", "state lock poisoned")),
+            let result = match now_unix_s() {
+                Some(now) => tools::dispatch(&state, &name, &arguments, now),
+                None => Err(MesmerError::new("MESMER-CLOCK", "system clock unreadable")),
             };
             render(result)
         });

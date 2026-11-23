@@ -1,12 +1,11 @@
 //! The canon: versioned data under `canon/`, parsed and validated
-//! at startup.
+//! during the build.
 //!
 //! Contract: [`Canon::load`] takes the raw text of every canon
 //! file and returns a validated [`Canon`] or a typed
 //! [`CanonError`] naming the file and the rule broken. It never
 //! panics on canon content. The shipped canon is embedded at
-//! compile time ([`CanonSources::embedded`]); the binary refuses
-//! to start when it fails validation.
+//! build time ([`CanonSources::embedded`]); invalid canon fails the build.
 //!
 //! The taxonomy is closed twice over: [`EffectClass`] is a Rust
 //! enum whose serde form accepts only taxonomy ids (anything else
@@ -270,6 +269,7 @@ pub struct ClassRecord {
 pub struct Effects {
     pub schema: u32,
     pub taxonomy_version: u32,
+    pub cadence_cap_per_session: u8,
     pub technique: Vec<Technique>,
     pub class: Vec<ClassRecord>,
 }
@@ -380,7 +380,7 @@ pub struct Encoding {
 
 // ── Errors ───────────────────────────────────────────────────────
 
-/// A canon file failed to parse or validate. A startup refusal.
+/// A canon file failed to parse or validate.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CanonError {
     /// `MESMER-CANON-PARSE` or `MESMER-CANON-INVALID`.
@@ -476,8 +476,8 @@ impl CanonSources<'static> {
     }
 }
 
-/// The validated canon. Constructed only by [`Canon::load`].
-#[derive(Clone, Debug, Serialize)]
+/// The validated canon.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Canon {
     pub effects: Effects,
     pub patterns: Patterns,
@@ -521,6 +521,9 @@ impl Canon {
 
 fn validate_effects(effects: &Effects) -> Result<(), CanonError> {
     const FILE: &str = "effects.toml";
+    if effects.cadence_cap_per_session == 0 {
+        return Err(invalid(FILE, "cadence_cap_per_session must be positive"));
+    }
     if effects.schema != 1 {
         return Err(invalid(
             FILE,

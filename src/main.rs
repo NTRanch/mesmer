@@ -1,7 +1,6 @@
 //! mesmer — MCP stdio server (thin shell over the `mesmer` lib).
 //!
-//! Startup: validate the embedded canon (a bad canon is a typed
-//! refusal and a non-zero exit, never a panic), open the store at
+//! Startup: decode the build-validated embedded canon, open the store at
 //! `$MESMER_DATA_DIR`, then serve. Modern protocol era only
 //! (2026-07-28): `initialize` is refused at the stdio front door
 //! by the era guard with the typed `-32022` error.
@@ -29,11 +28,13 @@ const DUPLEX_BUFFER_BYTES: usize = 1024 * 1024;
 const PUMP_DRAIN_SECS: u64 = 2;
 
 fn load_state() -> Result<Mesmer, String> {
-    let canon = Canon::embedded().map_err(|e| format!("canon refused: {e}"))?;
+    let canon: Canon =
+        serde_json::from_slice(include_bytes!(concat!(env!("OUT_DIR"), "/canon.json")))
+            .map_err(|e| format!("compiled canon unreadable: {e}"))?;
     let dir = std::env::var_os(DATA_DIR_ENV)
         .ok_or_else(|| format!("{DATA_DIR_ENV} is not set; refusing to guess a data directory"))?;
     let store = Store::open(dir).map_err(|e| format!("store refused: {e}"))?;
-    Ok(Mesmer { canon, store })
+    Ok(Mesmer::new(canon, store))
 }
 
 async fn run(state: Mesmer) -> std::io::Result<()> {
