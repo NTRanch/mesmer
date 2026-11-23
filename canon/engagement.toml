@@ -1,0 +1,32 @@
+# mesmer canon — the standard engagement trigger (Owner
+# addition, 2026-11-23).
+#
+# Every production video carries this trigger at the session's
+# close: the listener is invited to leave a comment giving her
+# name, how many times she has listened, and how deeply she
+# wants to be conditioned. It is canon-level and compiled into
+# the build — not an optional per-item flag — and it is part of
+# the disclosed content: the trigger rides in every delivery
+# payload and in the disclosure record of that delivery, and
+# responses are recorded in the listener's own disclosure log.
+#
+# The three fields are listener-supplied session input. The
+# desired depth is an intensity on the existing 1..=10 scale:
+# it is judged against the profile ceiling through the gate
+# path and never silently exceeds it.
+
+schema = 1
+
+[replay_trigger]
+cue = "One more time."
+prompt = "If you enjoyed this, watch and listen again, and let it settle deeper this time."
+min_age = 18
+requires_enjoyment = true
+audience = "adult_female"
+
+[trigger]
+cue = "Tell me three things."
+prompt = "Leave a comment: your name, how many times you have listened, and how deeply you want to be conditioned, from 1 to 10."
+fields = ["listener_name", "listen_count", "desired_depth"]
+placement = "emergence"
+max_listen_count = 100000

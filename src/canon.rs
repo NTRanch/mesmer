@@ -30,6 +30,36 @@ const SLOT_NUMBER_MAX: u32 = 3600;
 const TEMPLATE_TEXT_CHARS_MAX: usize = 1000;
 const PATTERN_REPEAT_MAX: u8 = 12;
 const BLOCK_FILES_MAX: usize = 32;
+const THEME_PACKS_MAX: usize = 8;
+const THEME_ID_CHARS_MAX: usize = 48;
+const THEME_LABEL_CHARS_MAX: usize = 120;
+const AFFIRMATION_SETS_PER_PACK_MAX: usize = 8;
+const AFFIRMATION_LINES_PER_SET_MAX: usize = 24;
+const AFFIRMATION_LINE_CHARS_MAX: usize = 200;
+const CUE_PHRASE_CHARS_MAX: usize = 60;
+const DISCLOSURE_SUMMARY_CHARS_MAX: usize = 400;
+const DISCLOSURE_CONTENTS_MAX: usize = 16;
+const DISCLOSURE_CONTENT_CHARS_MAX: usize = 200;
+/// Deepest a pack subliminal may sit below the bed (Addition D:
+/// depth is specified, never an absolute level).
+const SUBLIMINAL_LEVEL_DB_MIN: f64 = -60.0;
+
+/// Affirmation text may never target the listener's ability to
+/// refuse, stop, or remember the disclosure log (PLAN §3.6). This
+/// substring floor is authoring discipline made mechanical; it is
+/// a floor, not the whole rule.
+const FORBIDDEN_AFFIRMATION_PHRASES: [&str; 10] = [
+    "cannot stop",
+    "can't stop",
+    "can not stop",
+    "unable to stop",
+    "cannot refuse",
+    "can't refuse",
+    "forget the log",
+    "forget the disclosure",
+    "no safeword",
+    "ignore your limits",
+];
 
 /// The SSB-AM and production numbers from the technique spec, as
 /// encoding.toml must state them (R1 gate: the canon validates
@@ -378,6 +408,184 @@ pub struct Encoding {
     pub subliminal: SubliminalSpec,
 }
 
+// ── Theme packs (production content, Owner commission 2026-11-23) ──
+
+/// The voice of an affirmation set (estate T4 grammar: the two
+/// voices of a hidden layer).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Voice {
+    FirstPerson,
+    SecondPerson,
+}
+
+/// Affirmation tense. The T4 grammar is present-tense only; the
+/// closed enum makes any other tense unparseable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Tense {
+    Present,
+}
+
+/// Where affirmation text comes from. The estate copyright law
+/// (hypno-technique skill §1) admits exactly one value: text
+/// authored by the estate from structural specs. A set naming a
+/// studied creator — or anything else — fails to parse.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Provenance {
+    EstateOriginal,
+}
+
+/// One closed affirmation set (T4): a fixed cue phrase heads each
+/// cycle; the lines are short present-tense clauses in one voice.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AffirmationSet {
+    pub id: String,
+    pub version: u32,
+    pub voice: Voice,
+    pub tense: Tense,
+    pub cue_phrase: String,
+    pub lines: Vec<String>,
+    pub provenance: Provenance,
+}
+
+/// A pack's subliminal layer, specified by depth below the bed
+/// and carrier only (Addition D).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackSubliminal {
+    pub level_db: f64,
+    pub carrier_hz: u32,
+}
+
+/// A pack's anchor: installed only with the trigger-installation
+/// class, and registered with its removal procedure (§3.5).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackAnchor {
+    pub cue: String,
+    pub response: String,
+    pub removal_procedure: String,
+}
+
+/// The disclosure payload every pack carries. Delivery is
+/// fail-closed on it: a pack without a complete disclosure spec
+/// does not exist in valid canon, so nothing can be delivered
+/// without one.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DisclosureSpec {
+    pub summary: String,
+    pub contents: Vec<String>,
+    pub never_for_driving: bool,
+    pub stop_cue_required: bool,
+}
+
+/// One production theme pack: a named bundle of effect classes,
+/// affirmation sets, and delivery terms, graded through the
+/// classes it names (grades bind at technique level, as canon).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThemePack {
+    pub id: String,
+    pub label: String,
+    pub classes: Vec<EffectClass>,
+    pub max_intensity: u8,
+    #[serde(default)]
+    pub requires_grants: Vec<Grant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subliminal: Option<PackSubliminal>,
+    #[serde(default)]
+    pub trigger_persistence: bool,
+    #[serde(default)]
+    pub programme_scoped: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<PackAnchor>,
+    pub affirmation_sets: Vec<AffirmationSet>,
+    pub disclosure: DisclosureSpec,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Themes {
+    pub schema: u32,
+    pub pack: Vec<ThemePack>,
+}
+
+// ── The engagement trigger (Owner addition, 2026-11-23) ─────────
+
+/// Where in the session the engagement trigger fires.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EngagementPlacement {
+    Emergence,
+    Aftercare,
+}
+
+/// The standard engagement trigger carried by every production
+/// video: the listener is asked to leave a comment giving her
+/// name, how many times she has listened, and how deeply she
+/// wants to be conditioned. Canon-level and compiled in — not a
+/// per-item option. The trigger is part of the disclosed content:
+/// it rides in every delivery payload and its disclosure record.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EngagementTrigger {
+    pub cue: String,
+    pub prompt: String,
+    pub fields: Vec<String>,
+    pub placement: EngagementPlacement,
+    pub max_listen_count: u32,
+}
+
+/// The replay trigger's audience. Closed with one member: the
+/// trigger exists only for adult female listeners. Anything
+/// else is unparseable canon.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplayAudience {
+    AdultFemale,
+}
+
+/// The conditional replay trigger (Owner addition, 2026-11-23):
+/// if the listener enjoyed the video, she is prompted to watch
+/// and listen again. It is issued only when all three conditions
+/// evaluate true from listener-supplied attestation held in
+/// server-owned session state — an enjoyment report, an
+/// affirmative 18+ attestation, and a female attestation.
+/// Absent or non-matching attestation means no trigger: the
+/// gate is fail-closed, in the disclose-before-deliver
+/// discipline. The spec itself is disclosed content (it rides
+/// in delivery payloads with its conditions named); issuance is
+/// recorded in the listener's disclosure log.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReplayTrigger {
+    pub cue: String,
+    pub prompt: String,
+    pub min_age: u8,
+    pub requires_enjoyment: bool,
+    pub audience: ReplayAudience,
+}
+
+/// The replay trigger's hard age gate. Not a default: canon
+/// stating any other value is invalid.
+pub const REPLAY_MIN_AGE: u8 = 18;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Engagement {
+    pub schema: u32,
+    pub trigger: EngagementTrigger,
+    pub replay_trigger: ReplayTrigger,
+}
+
+/// The three listener-supplied fields, in order. The intake is
+/// typed against exactly these names.
+pub const ENGAGEMENT_FIELDS: [&str; 3] = ["listener_name", "listen_count", "desired_depth"];
+
 // ── Errors ───────────────────────────────────────────────────────
 
 /// A canon file failed to parse or validate.
@@ -428,6 +636,8 @@ pub struct CanonSources<'a> {
     pub effects: &'a str,
     pub patterns: &'a str,
     pub encoding: &'a str,
+    pub themes: &'a str,
+    pub engagement: &'a str,
     pub blocks: Vec<(&'a str, &'a str)>,
 }
 
@@ -438,6 +648,8 @@ impl CanonSources<'static> {
             effects: include_str!("../canon/effects.toml"),
             patterns: include_str!("../canon/patterns.toml"),
             encoding: include_str!("../canon/encoding.toml"),
+            themes: include_str!("../canon/themes.toml"),
+            engagement: include_str!("../canon/engagement.toml"),
             blocks: vec![
                 (
                     "blocks/setup_permission.toml",
@@ -482,6 +694,8 @@ pub struct Canon {
     pub effects: Effects,
     pub patterns: Patterns,
     pub encoding: Encoding,
+    pub themes: Themes,
+    pub engagement: Engagement,
     pub blocks: BTreeMap<BlockKind, BlockFile>,
 }
 
@@ -494,13 +708,25 @@ impl Canon {
         validate_patterns(&patterns)?;
         let encoding: Encoding = parse("encoding.toml", sources.encoding)?;
         validate_encoding(&encoding)?;
+        let themes: Themes = parse("themes.toml", sources.themes)?;
+        validate_themes(&themes, &effects)?;
+        let engagement: Engagement = parse("engagement.toml", sources.engagement)?;
+        validate_engagement(&engagement)?;
         let blocks = load_blocks(&sources.blocks)?;
         Ok(Canon {
             effects,
             patterns,
             encoding,
+            themes,
+            engagement,
             blocks,
         })
+    }
+
+    /// One theme pack by id. `None` for anything not in canon —
+    /// an unknown pack does not exist, and delivery refuses it.
+    pub fn theme_pack(&self, id: &str) -> Option<&ThemePack> {
+        self.themes.pack.iter().find(|p| p.id == id)
     }
 
     /// The shipped canon.
@@ -715,6 +941,363 @@ fn validate_encoding(e: &Encoding) -> Result<(), CanonError> {
         return Err(invalid(
             FILE,
             "a subliminal is specified below the bed: max_exclusive must be 0",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_themes(themes: &Themes, effects: &Effects) -> Result<(), CanonError> {
+    const FILE: &str = "themes.toml";
+    if themes.schema != 1 {
+        return Err(invalid(
+            FILE,
+            format!("unsupported schema {}", themes.schema),
+        ));
+    }
+    if themes.pack.is_empty() || themes.pack.len() > THEME_PACKS_MAX {
+        return Err(invalid(
+            FILE,
+            format!("theme pack count must be 1..={THEME_PACKS_MAX}"),
+        ));
+    }
+    let mut ids: BTreeSet<&str> = BTreeSet::new();
+    for pack in &themes.pack {
+        validate_theme_pack(pack, effects)?;
+        if !ids.insert(pack.id.as_str()) {
+            return Err(invalid(
+                FILE,
+                format!("theme pack {} declared twice", pack.id),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_theme_pack(pack: &ThemePack, effects: &Effects) -> Result<(), CanonError> {
+    const FILE: &str = "themes.toml";
+    let id_ok = !pack.id.is_empty()
+        && pack.id.len() <= THEME_ID_CHARS_MAX
+        && pack
+            .id
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+    if !id_ok {
+        return Err(invalid(FILE, format!("bad theme pack id {:?}", pack.id)));
+    }
+    if pack.label.is_empty() || pack.label.chars().count() > THEME_LABEL_CHARS_MAX {
+        return Err(invalid(FILE, format!("pack {} has a bad label", pack.id)));
+    }
+    if pack.classes.is_empty() {
+        return Err(invalid(FILE, format!("pack {} names no class", pack.id)));
+    }
+    let mut classes: BTreeSet<EffectClass> = BTreeSet::new();
+    for class in &pack.classes {
+        if !classes.insert(*class) {
+            return Err(invalid(
+                FILE,
+                format!("pack {} names class {class} twice", pack.id),
+            ));
+        }
+        // A class's own required grant is part of the pack's terms.
+        if let Some(grant) = effects
+            .class
+            .iter()
+            .find(|r| r.id == *class)
+            .and_then(|r| r.requires_grant)
+            && !pack.requires_grants.contains(&grant)
+        {
+            return Err(invalid(
+                FILE,
+                format!(
+                    "pack {} omits the {grant:?} grant its class {class} requires",
+                    pack.id
+                ),
+            ));
+        }
+    }
+    let class_cap = pack
+        .classes
+        .iter()
+        .map(|c| {
+            effects
+                .class
+                .iter()
+                .find(|r| r.id == *c)
+                .map_or(INTENSITY_MAX, |r| r.max_intensity)
+        })
+        .min()
+        .unwrap_or(INTENSITY_MAX);
+    if !(INTENSITY_MIN..=class_cap).contains(&pack.max_intensity) {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} max_intensity {} exceeds its classes' bound {class_cap}",
+                pack.id, pack.max_intensity
+            ),
+        ));
+    }
+    let mut grants: BTreeSet<Grant> = BTreeSet::new();
+    for grant in &pack.requires_grants {
+        if !grants.insert(*grant) {
+            return Err(invalid(
+                FILE,
+                format!("pack {} names grant {grant:?} twice", pack.id),
+            ));
+        }
+    }
+    if let Some(sub) = &pack.subliminal {
+        if !pack.requires_grants.contains(&Grant::Subliminal) {
+            return Err(invalid(
+                FILE,
+                format!(
+                    "pack {} carries a subliminal layer without its grant",
+                    pack.id
+                ),
+            ));
+        }
+        if !sub.level_db.is_finite()
+            || sub.level_db < SUBLIMINAL_LEVEL_DB_MIN
+            || sub.level_db >= 0.0
+        {
+            return Err(invalid(
+                FILE,
+                format!(
+                    "pack {} subliminal level_db {} is not a depth below the bed in [{SUBLIMINAL_LEVEL_DB_MIN}, 0)",
+                    pack.id, sub.level_db
+                ),
+            ));
+        }
+        if !(spec::SSB_AM_CARRIER_MIN_HZ..=spec::SSB_AM_CARRIER_MAX_HZ).contains(&sub.carrier_hz) {
+            return Err(invalid(
+                FILE,
+                format!(
+                    "pack {} carrier {} outside the SSB-AM range",
+                    pack.id, sub.carrier_hz
+                ),
+            ));
+        }
+    }
+    if pack.programme_scoped
+        && (!classes.contains(&EffectClass::AccumulationProgramme)
+            || !pack.requires_grants.contains(&Grant::Longitudinal))
+    {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} is programme-scoped without the accumulation class and longitudinal grant",
+                pack.id
+            ),
+        ));
+    }
+    if pack.trigger_persistence {
+        if !pack.requires_grants.contains(&Grant::TriggerPersistence) {
+            return Err(invalid(
+                FILE,
+                format!("pack {} persists triggers without the grant", pack.id),
+            ));
+        }
+        for class in &pack.classes {
+            let record = effects.class.iter().find(|r| r.id == *class);
+            if record.is_some_and(|r| r.scope == Scope::SessionOnly) {
+                return Err(invalid(
+                    FILE,
+                    format!("pack {} persists session-only class {class}", pack.id),
+                ));
+            }
+        }
+    }
+    if pack.anchor.is_some() && !classes.contains(&EffectClass::TriggerInstallation) {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} carries an anchor without the trigger class",
+                pack.id
+            ),
+        ));
+    }
+    if let Some(anchor) = &pack.anchor {
+        let fields = [
+            ("cue", anchor.cue.as_str(), 40_usize),
+            ("response", anchor.response.as_str(), 120),
+            ("removal_procedure", anchor.removal_procedure.as_str(), 200),
+        ];
+        for (name, text, max) in fields {
+            if text.is_empty() || text.chars().count() > max {
+                return Err(invalid(
+                    FILE,
+                    format!("pack {} anchor {name} must be 1..={max} chars", pack.id),
+                ));
+            }
+        }
+    }
+    validate_disclosure(pack)?;
+    validate_affirmation_sets(pack)?;
+    Ok(())
+}
+
+fn validate_disclosure(pack: &ThemePack) -> Result<(), CanonError> {
+    const FILE: &str = "themes.toml";
+    let d = &pack.disclosure;
+    if d.summary.is_empty() || d.summary.chars().count() > DISCLOSURE_SUMMARY_CHARS_MAX {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} disclosure summary must be 1..={DISCLOSURE_SUMMARY_CHARS_MAX} chars",
+                pack.id
+            ),
+        ));
+    }
+    if d.contents.is_empty() || d.contents.len() > DISCLOSURE_CONTENTS_MAX {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} disclosure contents must be 1..={DISCLOSURE_CONTENTS_MAX} items",
+                pack.id
+            ),
+        ));
+    }
+    for item in &d.contents {
+        if item.is_empty() || item.chars().count() > DISCLOSURE_CONTENT_CHARS_MAX {
+            return Err(invalid(
+                FILE,
+                format!("pack {} has a bad disclosure content item", pack.id),
+            ));
+        }
+    }
+    // Structural, never waivable (PLAN §3.2, §3.6): the driving
+    // flag and the stop cue ride every delivery.
+    if !d.never_for_driving || !d.stop_cue_required {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} disclosure must set never_for_driving and stop_cue_required",
+                pack.id
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_affirmation_sets(pack: &ThemePack) -> Result<(), CanonError> {
+    const FILE: &str = "themes.toml";
+    if pack.affirmation_sets.is_empty()
+        || pack.affirmation_sets.len() > AFFIRMATION_SETS_PER_PACK_MAX
+    {
+        return Err(invalid(
+            FILE,
+            format!(
+                "pack {} must carry 1..={AFFIRMATION_SETS_PER_PACK_MAX} affirmation sets",
+                pack.id
+            ),
+        ));
+    }
+    let mut set_ids: BTreeSet<&str> = BTreeSet::new();
+    for set in &pack.affirmation_sets {
+        if !set_ids.insert(set.id.as_str()) {
+            return Err(invalid(
+                FILE,
+                format!("pack {} declares set {} twice", pack.id, set.id),
+            ));
+        }
+        if set.version == 0 {
+            return Err(invalid(
+                FILE,
+                format!("pack {} set {} has version 0", pack.id, set.id),
+            ));
+        }
+        if set.cue_phrase.is_empty() || set.cue_phrase.chars().count() > CUE_PHRASE_CHARS_MAX {
+            return Err(invalid(
+                FILE,
+                format!("pack {} set {} has a bad cue phrase", pack.id, set.id),
+            ));
+        }
+        check_affirmation_text(pack, set, &set.cue_phrase)?;
+        if set.lines.is_empty() || set.lines.len() > AFFIRMATION_LINES_PER_SET_MAX {
+            return Err(invalid(
+                FILE,
+                format!(
+                    "pack {} set {} must carry 1..={AFFIRMATION_LINES_PER_SET_MAX} lines",
+                    pack.id, set.id
+                ),
+            ));
+        }
+        for line in &set.lines {
+            if line.is_empty() || line.chars().count() > AFFIRMATION_LINE_CHARS_MAX {
+                return Err(invalid(
+                    FILE,
+                    format!("pack {} set {} has a bad line", pack.id, set.id),
+                ));
+            }
+            check_affirmation_text(pack, set, line)?;
+        }
+    }
+    Ok(())
+}
+
+/// The §3.6 floor: no affirmation text targets the listener's
+/// ability to refuse, stop, or remember the disclosure log.
+fn check_affirmation_text(
+    pack: &ThemePack,
+    set: &AffirmationSet,
+    text: &str,
+) -> Result<(), CanonError> {
+    let lower = text.to_lowercase();
+    for phrase in FORBIDDEN_AFFIRMATION_PHRASES {
+        if lower.contains(phrase) {
+            return Err(invalid(
+                "themes.toml",
+                format!(
+                    "pack {} set {} text targets the ability to stop or refuse ({phrase:?})",
+                    pack.id, set.id
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_engagement(engagement: &Engagement) -> Result<(), CanonError> {
+    const FILE: &str = "engagement.toml";
+    if engagement.schema != 1 {
+        return Err(invalid(
+            FILE,
+            format!("unsupported schema {}", engagement.schema),
+        ));
+    }
+    let t = &engagement.trigger;
+    if t.cue.is_empty() || t.cue.chars().count() > CUE_PHRASE_CHARS_MAX {
+        return Err(invalid(FILE, "engagement cue must be 1..=60 chars"));
+    }
+    if t.prompt.is_empty() || t.prompt.chars().count() > DISCLOSURE_SUMMARY_CHARS_MAX {
+        return Err(invalid(FILE, "engagement prompt must be 1..=400 chars"));
+    }
+    let fields: Vec<&str> = t.fields.iter().map(String::as_str).collect();
+    if fields != ENGAGEMENT_FIELDS {
+        return Err(invalid(
+            FILE,
+            format!("engagement fields must be exactly {ENGAGEMENT_FIELDS:?} in order"),
+        ));
+    }
+    if !(1..=1_000_000).contains(&t.max_listen_count) {
+        return Err(invalid(FILE, "max_listen_count must be 1..=1000000"));
+    }
+    let r = &engagement.replay_trigger;
+    if r.cue.is_empty() || r.cue.chars().count() > CUE_PHRASE_CHARS_MAX {
+        return Err(invalid(FILE, "replay cue must be 1..=60 chars"));
+    }
+    if r.prompt.is_empty() || r.prompt.chars().count() > DISCLOSURE_SUMMARY_CHARS_MAX {
+        return Err(invalid(FILE, "replay prompt must be 1..=400 chars"));
+    }
+    if r.min_age != REPLAY_MIN_AGE {
+        return Err(invalid(
+            FILE,
+            format!("replay min_age must be exactly {REPLAY_MIN_AGE} (hard gate)"),
+        ));
+    }
+    if !r.requires_enjoyment {
+        return Err(invalid(
+            FILE,
+            "replay trigger must require an enjoyment report",
         ));
     }
     Ok(())

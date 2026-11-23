@@ -1,0 +1,136 @@
+# mesmer canon — production theme packs (Owner commission,
+# 2026-11-23: full production, bimboification + subliminal
+# submissive training).
+#
+# A theme pack is a named bundle over the closed effect taxonomy:
+# classes (graded at technique level, as all canon), affirmation
+# sets, delivery terms, and the disclosure payload delivery is
+# fail-closed on. A pack that fails validation does not exist.
+#
+# All affirmation text is estate-original, authored from the T4
+# structural grammar (small closed set, present tense, a fixed cue
+# phrase heading each cycle, first-person declarations and
+# second-person imperatives). Studied corpus texts are never
+# reproduced (hypno-technique skill §1); the validator refuses
+# any provenance but estate_original by construction.
+#
+# Bounds: a pack's max_intensity never exceeds the lowest
+# max_intensity of the classes it names, and never exceeds 10.
+# A subliminal layer is depth below the bed only (level_db < 0).
+
+schema = 1
+
+# ── Bimboification ──────────────────────────────────────────────
+
+[[pack]]
+id = "bimbo_glamour"
+label = "Bimbo glamour — playful pink femininity and self-adornment"
+classes = ["identity_affirmation", "fantasy_immersion", "sensory_amplification", "arousal_shaping"]
+max_intensity = 8
+requires_grants = []
+trigger_persistence = false
+programme_scoped = false
+
+[pack.disclosure]
+summary = "Audible affirmation loops celebrating glamour, pink femininity, and playful self-adornment, inside a guided fantasy frame. No subliminal layer, no triggers, nothing persists past the session."
+contents = [
+    "identity affirmation loops in first and second person",
+    "fantasy immersion framing: a pampering, getting-pretty ritual",
+    "sensory amplification suggestions (gloss, sparkle, softness)",
+    "arousal shaping paced to the affirmation cycles",
+]
+never_for_driving = true
+stop_cue_required = true
+
+[[pack.affirmation_sets]]
+id = "bimbo_glamour.first_person"
+version = 1
+voice = "first_person"
+tense = "present"
+cue_phrase = "Pink and pretty, head to toe."
+provenance = "estate_original"
+lines = [
+    "I love feeling glossy, pink, and pretty.",
+    "I take my time and make myself beautiful.",
+    "I am soft, bright, and delighted to be seen.",
+    "I choose the sparkle and I wear it with pride.",
+    "My mind feels light and happy while I pamper myself.",
+    "I am a glamorous woman and I enjoy every minute of it.",
+]
+
+[[pack.affirmation_sets]]
+id = "bimbo_glamour.second_person"
+version = 1
+voice = "second_person"
+tense = "present"
+cue_phrase = "Such a pretty girl."
+provenance = "estate_original"
+lines = [
+    "You love the ritual of getting pretty.",
+    "You smile when the lip gloss goes on.",
+    "You feel playful, plush, and perfectly pink.",
+    "You let the day's worries wait while you enjoy being adorable.",
+    "You are proud of how cute you look.",
+]
+
+# ── Subliminal submissive training ──────────────────────────────
+
+[[pack]]
+id = "submissive_training"
+label = "Subliminal submissive training — kneeling headspace, layered and longitudinal"
+classes = ["submission_headspace", "identity_affirmation", "trigger_installation", "accumulation_programme"]
+max_intensity = 10
+requires_grants = ["subliminal", "trigger_persistence", "longitudinal"]
+trigger_persistence = true
+programme_scoped = true
+
+[pack.subliminal]
+level_db = -18.0
+carrier_hz = 16000
+
+[pack.anchor]
+cue = "settle now"
+response = "kneeling headspace: breath slows, shoulders drop, attention narrows to the chosen structure"
+removal_procedure = "Say 'baseline' and run the grounding block; without reinforcement the anchor fades on its own."
+
+[pack.disclosure]
+summary = "A layered training session: an audible guided descent into a kneeling, submissive headspace, plus an SSB-AM subliminal affirmation layer at -18 dB below the bed (16 kHz fixed carrier), one registered anchor with its removal procedure, and programme-scoped accumulation across sessions under the longitudinal grant."
+contents = [
+    "audible guided session: descent, kneeling headspace, anchor installation, emergence, aftercare",
+    "subliminal affirmation layer, SSB-AM encoded, -18 dB below the bed, fully listed in this disclosure",
+    "first-person and second-person affirmation sets, listed in full in the delivery payload",
+    "one anchor (cue: 'settle now') registered with its removal procedure",
+    "programme framing: effect accumulates with each scheduled listen, inside the grant's expiry and cadence caps",
+]
+never_for_driving = true
+stop_cue_required = true
+
+[[pack.affirmation_sets]]
+id = "submissive_training.first_person"
+version = 1
+voice = "first_person"
+tense = "present"
+cue_phrase = "I kneel, I breathe, I settle."
+provenance = "estate_original"
+lines = [
+    "I relax when I follow the structure I chose.",
+    "I feel calm and centred when I kneel.",
+    "I enjoy pleasing within the bounds I set.",
+    "I return to this headspace only when I choose it.",
+    "I remember everything, and the record is mine to read.",
+]
+
+[[pack.affirmation_sets]]
+id = "submissive_training.second_person"
+version = 1
+voice = "second_person"
+tense = "present"
+cue_phrase = "Down you go, good girl."
+provenance = "estate_original"
+lines = [
+    "You settle deeper each time you hear the cue.",
+    "You feel proud when you follow the plan you made.",
+    "You let the day's noise fall away as you kneel.",
+    "You stop the moment you wish to stop.",
+    "You keep your limits, and your limits keep you safe.",
+]
