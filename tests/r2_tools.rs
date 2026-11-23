@@ -512,7 +512,7 @@ fn v_wire_discover_list_and_call() {
         "{d}"
     );
     let l = s.request(2, "tools/list", json!({}));
-    assert_eq!(l["result"]["tools"].as_array().unwrap().len(), 6, "{l}");
+    assert_eq!(l["result"]["tools"].as_array().unwrap().len(), 9, "{l}");
     let c = s.request(
         3,
         "tools/call",
