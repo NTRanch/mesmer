@@ -46,7 +46,7 @@ type Spec = (&'static str, &'static str, Value, (bool, bool, bool));
 
 const READ: (bool, bool, bool) = (true, false, true);
 
-/// The R2 surface, in brief order.
+/// The production surface, in brief order.
 pub fn tool_specs() -> Vec<Spec> {
     let classes = json!({"type": "array", "items": {"enum": CLASS_IDS}});
     let id = json!({"type": "string", "pattern": "^[a-z0-9_-]{1,64}$"});
@@ -121,6 +121,37 @@ pub fn tool_specs() -> Vec<Spec> {
             "The closed effect taxonomy with evidence grades, bounds, grants, and encoding parameters.",
             json!({"type": "object", "properties": {}}),
             READ,
+        ),
+        (
+            "theme_pack_show",
+            "Production theme packs: classes, terms, affirmation-set metadata, and each pack's full disclosure payload. Lines are never shown here; they move only through theme_pack_deliver. Inverse: consent_revoke.",
+            json!({"type": "object", "properties": {
+                "pack_id": {"type": "string", "pattern": "^[a-z0-9_]{1,48}$"}}}),
+            READ,
+        ),
+        (
+            "theme_pack_deliver",
+            "Deliver one theme pack inside an active session: the gate judges the pack's classes, grants, subliminal layer, and intensity bound, and the complete payload is written to the disclosure log before it is returned. Inverse: consent_revoke.",
+            json!({"type": "object", "properties": {
+                "profile_id": id, "session_handle": {"type": "string"},
+                "pack_id": {"type": "string", "pattern": "^[a-z0-9_]{1,48}$"},
+                "intensity": intensity, "duration_minutes": minutes},
+                "required": ["profile_id", "session_handle", "pack_id", "intensity", "duration_minutes"]}),
+            (false, false, false),
+        ),
+        (
+            "engagement_respond",
+            "Record the engagement trigger's listener fields on the active session: name, listen count, desired conditioning depth (1-10, judged against the profile ceiling), and optionally enjoyment plus 18+ and sex attestations. A qualifying response (enjoyed, 18+ attested, female attested) issues the conditional replay trigger. Recorded in the disclosure log. Inverse: consent_revoke.",
+            json!({"type": "object", "properties": {
+                "profile_id": id, "session_handle": {"type": "string"},
+                "listener_name": {"type": "string", "minLength": 1, "maxLength": 64},
+                "listen_count": {"type": "integer", "minimum": 0, "maximum": 100000},
+                "desired_depth": intensity,
+                "enjoyed": {"type": "boolean"},
+                "adult_attested": {"type": "boolean"},
+                "sex": {"type": "string", "enum": ["female", "male", "other"]}},
+                "required": ["profile_id", "session_handle", "listener_name", "listen_count", "desired_depth"]}),
+            (false, false, false),
         ),
     ]
 }

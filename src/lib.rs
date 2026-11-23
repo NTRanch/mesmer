@@ -8,10 +8,14 @@
 //!   `EffectClass`, `SessionRequest`, `ProgrammeGrant`.
 //! - R2 — the pure consent gate ([`gate::decide`] and the
 //!   lifecycle gates), persistence with the disclosure seam
-//!   ([`store`]), and the six consent tools ([`tools`]).
+//!   ([`store`]), and the consent tools ([`tools`]).
+//! - Production (1.0.0, 2026-11-23) — theme packs as validated
+//!   canon ([`canon::ThemePack`]) with gated, disclose-before-
+//!   deliver delivery, and the canon-level engagement trigger
+//!   ([`canon::Engagement`]) with its server-owned intake.
 //!
-//! Not built (out of scope until commissioned): R3 composition,
-//! R4 programmes and the full disclosure log, R5 consumers.
+//! Not built (out of scope until commissioned): the seeded
+//! session composer, the programme engine, and consumers.
 
 #![forbid(unsafe_code)]
 
