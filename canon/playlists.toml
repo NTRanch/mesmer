@@ -1,0 +1,11 @@
+# Playlist and composite bounds (mesmer 1.1.0, playlists SPEC §4.1).
+# The feature's bounds live in canon, build-validated, as all mesmer
+# bounds do. The numeric values are the spec's proposals (SPEC Q7),
+# placed here for Owner ratification; their placement in canon is
+# not optional. effects.toml is untouched: cadence_cap_per_session
+# stays 1 (SPEC Invariant 0).
+schema = 1
+max_entries_per_playlist = 12
+max_layers_per_composite = 4
+max_depth_step = 3
+layer_roles = ["bed", "subliminal", "visual", "drone"]

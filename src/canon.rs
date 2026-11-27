@@ -170,6 +170,45 @@ pub enum Scope {
     Persistable,
 }
 
+/// A composite layer's role (playlists SPEC §3.2): the closed
+/// vocabulary of simultaneous-layer slots. Exactly one `Bed`
+/// carries the composite; at most one `Subliminal` and one
+/// `Visual` may ride it; `Drone` layers fill the remaining slots.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerRole {
+    Bed,
+    Subliminal,
+    Visual,
+    Drone,
+}
+
+impl LayerRole {
+    /// Every role, in canon order.
+    pub const ALL: [LayerRole; 4] = [
+        LayerRole::Bed,
+        LayerRole::Subliminal,
+        LayerRole::Visual,
+        LayerRole::Drone,
+    ];
+
+    /// The canon id (the serde form).
+    pub fn id(self) -> &'static str {
+        match self {
+            LayerRole::Bed => "bed",
+            LayerRole::Subliminal => "subliminal",
+            LayerRole::Visual => "visual",
+            LayerRole::Drone => "drone",
+        }
+    }
+}
+
+impl fmt::Display for LayerRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.id())
+    }
+}
+
 /// Session block kinds, in the estate session order, plus the
 /// standalone grounding block.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -514,6 +553,21 @@ pub struct Themes {
     pub pack: Vec<ThemePack>,
 }
 
+// ── Playlist bounds (1.1.0, playlists SPEC §4.1) ────────────────
+
+/// The playlist/composite feature's bounds, held in canon as all
+/// mesmer bounds are. The values in `canon/playlists.toml` are
+/// the spec's proposals (SPEC Q7); a bad bound fails the build.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Playlists {
+    pub schema: u32,
+    pub max_entries_per_playlist: usize,
+    pub max_layers_per_composite: usize,
+    pub max_depth_step: u8,
+    pub layer_roles: Vec<LayerRole>,
+}
+
 // ── The engagement trigger (Owner addition, 2026-11-23) ─────────
 
 /// Where in the session the engagement trigger fires.
@@ -638,6 +692,7 @@ pub struct CanonSources<'a> {
     pub encoding: &'a str,
     pub themes: &'a str,
     pub engagement: &'a str,
+    pub playlists: &'a str,
     pub blocks: Vec<(&'a str, &'a str)>,
 }
 
@@ -650,6 +705,7 @@ impl CanonSources<'static> {
             encoding: include_str!("../canon/encoding.toml"),
             themes: include_str!("../canon/themes.toml"),
             engagement: include_str!("../canon/engagement.toml"),
+            playlists: include_str!("../canon/playlists.toml"),
             blocks: vec![
                 (
                     "blocks/setup_permission.toml",
@@ -696,6 +752,7 @@ pub struct Canon {
     pub encoding: Encoding,
     pub themes: Themes,
     pub engagement: Engagement,
+    pub playlists: Playlists,
     pub blocks: BTreeMap<BlockKind, BlockFile>,
 }
 
@@ -712,6 +769,8 @@ impl Canon {
         validate_themes(&themes, &effects)?;
         let engagement: Engagement = parse("engagement.toml", sources.engagement)?;
         validate_engagement(&engagement)?;
+        let playlists: Playlists = parse("playlists.toml", sources.playlists)?;
+        validate_playlists(&playlists)?;
         let blocks = load_blocks(&sources.blocks)?;
         Ok(Canon {
             effects,
@@ -719,6 +778,7 @@ impl Canon {
             encoding,
             themes,
             engagement,
+            playlists,
             blocks,
         })
     }
@@ -744,6 +804,44 @@ impl Canon {
 }
 
 // ── Validation ───────────────────────────────────────────────────
+
+fn validate_playlists(playlists: &Playlists) -> Result<(), CanonError> {
+    const FILE: &str = "playlists.toml";
+    if playlists.schema != 1 {
+        return Err(invalid(
+            FILE,
+            format!("unsupported schema {}", playlists.schema),
+        ));
+    }
+    if playlists.max_entries_per_playlist == 0 {
+        return Err(invalid(FILE, "max_entries_per_playlist must be positive"));
+    }
+    if playlists.max_layers_per_composite == 0 {
+        return Err(invalid(FILE, "max_layers_per_composite must be positive"));
+    }
+    if !(INTENSITY_MIN..=INTENSITY_MAX).contains(&playlists.max_depth_step) {
+        return Err(invalid(
+            FILE,
+            format!(
+                "max_depth_step {} outside the intensity scale {INTENSITY_MIN}..={INTENSITY_MAX}",
+                playlists.max_depth_step
+            ),
+        ));
+    }
+    let mut roles: BTreeSet<LayerRole> = BTreeSet::new();
+    for role in &playlists.layer_roles {
+        if !roles.insert(*role) {
+            return Err(invalid(FILE, format!("layer role {role} named twice")));
+        }
+    }
+    if roles != LayerRole::ALL.into_iter().collect() {
+        return Err(invalid(
+            FILE,
+            "layer_roles must name the closed role vocabulary exactly once each",
+        ));
+    }
+    Ok(())
+}
 
 fn validate_effects(effects: &Effects) -> Result<(), CanonError> {
     const FILE: &str = "effects.toml";

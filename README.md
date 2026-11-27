@@ -18,10 +18,11 @@ herself; the profile's envelope bounds every class, intensity,
 and grant; and a full disclosure log records everything
 delivered. The design is specified in `docs/PLAN.md`.
 
-Status: production 1.0.0, 2026-11-23 — canon, the consent gate,
+Status: production 1.1.0, 2026-11-27 — canon, the consent gate,
 theme-pack delivery (bimbo glamour; subliminal submissive
-training), and the standard engagement trigger. Deployed on
-primo as a socket-activated systemd user service
+training), the standard engagement trigger, playlists with
+typed compounding, composite delivery, and concurrent sessions.
+Deployed on primo as a socket-activated systemd user service
 (`mesmer.socket` / `mesmer@.service`); the binary is
 `~/.local/bin/mesmer`.
 

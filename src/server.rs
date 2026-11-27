@@ -61,6 +61,16 @@ pub fn tool_specs() -> Vec<Spec> {
     let exclusions = json!({"type": "array", "items": {"type": "string"}});
     let intensity = json!({"type": "integer", "minimum": 1, "maximum": 10});
     let minutes = json!({"type": "integer", "minimum": 1, "maximum": 180});
+    let anchors =
+        json!({"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 40}});
+    let composite = json!({"type": "object", "properties": {
+        "intensity": intensity, "duration_minutes": minutes,
+        "layers": {"type": "array", "minItems": 1, "maxItems": 4, "items": {
+            "type": "object", "properties": {
+                "role": {"type": "string", "enum": ["bed", "subliminal", "visual", "drone"]},
+                "pack_id": {"type": "string", "pattern": "^[a-z0-9_]{1,48}$"}},
+            "required": ["role", "pack_id"]}}},
+        "required": ["intensity", "duration_minutes", "layers"]});
     vec![
         (
             "consent_profile_create",
@@ -151,6 +161,78 @@ pub fn tool_specs() -> Vec<Spec> {
                 "adult_attested": {"type": "boolean"},
                 "sex": {"type": "string", "enum": ["female", "male", "other"]}},
                 "required": ["profile_id", "session_handle", "listener_name", "listen_count", "desired_depth"]}),
+            (false, false, false),
+        ),
+        (
+            "session_open",
+            "Open a session on an existing consent profile and return its session handle. Sessions are concurrent: each open adds one session with its own delivery cadence and engagement record, on this profile or any other. The opening is disclosed before the handle is returned. Inverse: session_close.",
+            json!({"type": "object", "properties": {"profile_id": id}, "required": ["profile_id"]}),
+            (false, false, false),
+        ),
+        (
+            "session_close",
+            "Close one session by handle. A plain session simply ends. A session bound to a playlist run advances the run instead: the next entry's session opens, judged fresh against the profile as it now stands (a refusal halts the run and is returned with the close), or the run completes on its final entry. With halt true, a run-bound session's close stops the run. Inverse: session_open.",
+            json!({"type": "object", "properties": {
+                "profile_id": id, "session_handle": {"type": "string"},
+                "halt": {"type": "boolean"}},
+                "required": ["profile_id", "session_handle"]}),
+            (false, false, false),
+        ),
+        (
+            "playlist_create",
+            "Author a playlist on a consent profile: an ordered chain of entries, each played as a full session, with typed compounding (builds_on names strictly earlier entries; declared depth targets never decrease and step by at most canon's bound) and a declared end state the entries must actually reach. Playlists are immutable once stored. Authoring is refused inside a session on the same profile, and every entry is judged against the profile before anything is stored.",
+            json!({"type": "object", "properties": {
+                "profile_id": id,
+                "playlist": {"type": "object", "properties": {
+                    "playlist_id": id,
+                    "title": {"type": ["string", "null"], "maxLength": 120},
+                    "entries": {"type": "array", "minItems": 1, "maxItems": 12, "items": {
+                        "type": "object", "properties": {
+                            "delivery": {"oneOf": [
+                                {"type": "object", "properties": {
+                                    "kind": {"const": "pack"},
+                                    "pack_id": {"type": "string", "pattern": "^[a-z0-9_]{1,48}$"}},
+                                    "required": ["kind", "pack_id"]},
+                                {"type": "object", "properties": {
+                                    "kind": {"const": "composite"}, "composite": composite},
+                                    "required": ["kind", "composite"]}]},
+                            "intensity": intensity, "duration_minutes": minutes,
+                            "build": {"type": ["object", "null"], "properties": {
+                                "builds_on": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+                                "depth_target": intensity, "anchors": anchors},
+                                "required": ["builds_on", "depth_target", "anchors"]}},
+                        "required": ["delivery", "intensity", "duration_minutes"]}},
+                    "end_state": {"type": "object", "properties": {
+                        "classes": classes, "depth_target": intensity,
+                        "persistence": {"type": "string", "enum": ["run_only", "programme"]},
+                        "anchors": anchors},
+                        "required": ["classes", "depth_target", "persistence", "anchors"]}},
+                    "required": ["playlist_id", "entries", "end_state"]}},
+                "required": ["profile_id", "playlist"]}),
+            (false, false, false),
+        ),
+        (
+            "playlist_show",
+            "Show one stored playlist on a profile — its entries, compounding declarations, and end state — plus its run state (position and phase) when a run is active.",
+            json!({"type": "object", "properties": {
+                "profile_id": id, "playlist_id": id},
+                "required": ["profile_id", "playlist_id"]}),
+            READ,
+        ),
+        (
+            "playlist_start",
+            "Start a run of a stored playlist: every entry is judged fresh against the profile as it now stands, the run is disclosed, and entry 0's session opens (its handle is returned). Each entry then plays as a full session; closing an entry's session advances the run, and a refused entry halts it. One active run per playlist. Inverse: session_close with halt true.",
+            json!({"type": "object", "properties": {
+                "profile_id": id, "playlist_id": id},
+                "required": ["profile_id", "playlist_id"]}),
+            (false, false, false),
+        ),
+        (
+            "composite_deliver",
+            "Deliver one composite inside an active session: up to four layered theme packs in named roles (exactly one bed, at most one subliminal, at most one visual), judged once as a single delivery — one verdict, one disclosure record carrying every layer's full payload, one unit of the session cadence. An anchor may ride only the bed layer. Inverse: consent_revoke.",
+            json!({"type": "object", "properties": {
+                "profile_id": id, "session_handle": {"type": "string"}, "composite": composite},
+                "required": ["profile_id", "session_handle", "composite"]}),
             (false, false, false),
         ),
     ]

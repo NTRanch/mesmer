@@ -10,7 +10,9 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::canon::{EffectClass, Grant, INTENSITY_MAX, INTENSITY_MIN};
+use crate::canon::{
+    Canon, EffectClass, Grant, INTENSITY_MAX, INTENSITY_MIN, LayerRole, Scope, ThemePack,
+};
 use crate::error::{MesmerError, MesmerResult};
 
 /// The plain statement of what use means (PLAN §3.1).
@@ -473,4 +475,517 @@ pub struct SessionRequest {
 pub struct SessionContext {
     pub now_unix_s: i64,
     pub session_active: bool,
+}
+
+// ── Playlists and composites (1.1.0, playlists SPEC §4.2) ───────
+
+/// Playlist record schema id.
+pub const PLAYLIST_SCHEMA: u32 = 1;
+/// Playlist ids follow the profile-id charset rules (SPEC §4.2).
+pub type PlaylistId = ProfileId;
+/// Longest playlist title, chars. Titles are data: stored and
+/// shown, never judged.
+pub const PLAYLIST_TITLE_CHARS_MAX: usize = 120;
+/// A playlist title.
+pub type PlaylistTitle = FreeText<PLAYLIST_TITLE_CHARS_MAX>;
+/// Most anchor cues one build/end-state spec may name.
+pub const ANCHOR_CUES_PER_SPEC_MAX: usize = 8;
+/// Longest anchor cue, chars (canon bounds a pack's cue at 40).
+pub const ANCHOR_CUE_CHARS_MAX: usize = 40;
+
+/// The request a theme pack makes when delivered at one
+/// intensity for one duration: the pack's own classes, subliminal
+/// layer, and persistence terms — the derivation
+/// `theme_pack_deliver` has always performed, named once here so
+/// entries and composites derive requests identically.
+pub fn pack_request(
+    pack: &ThemePack,
+    intensity: Intensity,
+    duration_minutes: u16,
+) -> SessionRequest {
+    SessionRequest {
+        classes: pack.classes.iter().copied().collect(),
+        intensity,
+        duration_minutes,
+        subliminal_layer: pack.subliminal.map(|s| SubliminalLayer {
+            level_db: s.level_db,
+        }),
+        trigger_persistence: pack.trigger_persistence,
+        programme_scoped: pack.programme_scoped,
+        notes: None,
+    }
+}
+
+/// Whether an end state is claimed for the run's arc only, or is
+/// meant to persist and accumulate under the programme regime
+/// (SPEC §2.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EndStatePersistence {
+    RunOnly,
+    Programme,
+}
+
+/// A playlist's declared desired end state (SPEC §2.3): taxonomy
+/// classes, a depth target on the intensity scale, a persistence
+/// term, and the anchor cues expected installed by the final
+/// entry. Typed only — there is no free-text end state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EndState {
+    pub classes: BTreeSet<EffectClass>,
+    pub depth_target: Intensity,
+    pub persistence: EndStatePersistence,
+    #[serde(default)]
+    pub anchors: Vec<String>,
+}
+
+/// One entry's compounding declaration (SPEC §2.2): strictly
+/// backward build references, a depth target, and anchor cues
+/// installed by earlier entries of the same playlist.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BuildSpec {
+    #[serde(default)]
+    pub builds_on: Vec<u16>,
+    pub depth_target: Intensity,
+    #[serde(default)]
+    pub anchors: Vec<String>,
+}
+
+/// One composite layer: a role and the pack that fills it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LayerSpec {
+    pub role: LayerRole,
+    pub pack_id: String,
+}
+
+/// A simultaneous composite delivery (SPEC §3.2): layered packs
+/// under one intensity and one duration, judged once as one
+/// delivery.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompositeSpec {
+    pub intensity: Intensity,
+    pub duration_minutes: u16,
+    pub layers: Vec<LayerSpec>,
+}
+
+impl CompositeSpec {
+    /// The pack filling one role, if the role is present.
+    pub fn layer_pack<'c>(&self, canon: &'c Canon, role: LayerRole) -> Option<&'c ThemePack> {
+        self.layers
+            .iter()
+            .find(|l| l.role == role)
+            .and_then(|l| canon.theme_pack(&l.pack_id))
+    }
+
+    /// The composite's single request (SPEC §3.3, composition
+    /// pass): the union of its layers' classes, its subliminal
+    /// layer's spec (the bed's own, when no subliminal layer is
+    /// named), and the OR of its layers' persistence terms.
+    pub fn request(&self, canon: &Canon) -> SessionRequest {
+        let mut classes = BTreeSet::new();
+        let mut trigger_persistence = false;
+        let mut programme_scoped = false;
+        for layer in &self.layers {
+            if let Some(pack) = canon.theme_pack(&layer.pack_id) {
+                classes.extend(pack.classes.iter().copied());
+                trigger_persistence |= pack.trigger_persistence;
+                programme_scoped |= pack.programme_scoped;
+            }
+        }
+        let subliminal_layer = [LayerRole::Subliminal, LayerRole::Bed]
+            .into_iter()
+            .filter_map(|role| self.layer_pack(canon, role))
+            .find_map(|pack| pack.subliminal)
+            .map(|s| SubliminalLayer {
+                level_db: s.level_db,
+            });
+        SessionRequest {
+            classes,
+            intensity: self.intensity,
+            duration_minutes: self.duration_minutes,
+            subliminal_layer,
+            trigger_persistence,
+            programme_scoped,
+            notes: None,
+        }
+    }
+
+    /// Structural validation against canon (SPEC §3.2): bounds,
+    /// role counts, pack existence, and the anchor's one seat.
+    /// Failures are `MESMER-PLAYLIST-INVALID`: a composite that
+    /// fails validation does not exist as a delivery.
+    pub fn validate(&self, canon: &Canon) -> MesmerResult<()> {
+        let invalid = |detail: String| MesmerError::new("MESMER-PLAYLIST-INVALID", detail);
+        if self.duration_minutes == 0 {
+            return Err(invalid(
+                "composite duration_minutes must be >= 1".to_string(),
+            ));
+        }
+        let max = canon.playlists.max_layers_per_composite;
+        if self.layers.is_empty() || self.layers.len() > max {
+            return Err(invalid(format!(
+                "a composite carries 1..={max} layers, not {}",
+                self.layers.len()
+            )));
+        }
+        let count = |role: LayerRole| self.layers.iter().filter(|l| l.role == role).count();
+        if count(LayerRole::Bed) != 1 {
+            return Err(invalid(
+                "a composite carries exactly one bed layer".to_string(),
+            ));
+        }
+        if count(LayerRole::Subliminal) > 1 {
+            return Err(invalid(
+                "a composite carries at most one subliminal layer".to_string(),
+            ));
+        }
+        if count(LayerRole::Visual) > 1 {
+            return Err(invalid(
+                "a composite carries at most one visual layer".to_string(),
+            ));
+        }
+        for layer in &self.layers {
+            let Some(pack) = canon.theme_pack(&layer.pack_id) else {
+                return Err(invalid(format!(
+                    "no theme pack {:?} for the {} layer",
+                    layer.pack_id, layer.role
+                )));
+            };
+            if layer.role == LayerRole::Subliminal && pack.subliminal.is_none() {
+                return Err(invalid(format!(
+                    "pack {} carries no subliminal layer to fill the subliminal role",
+                    pack.id
+                )));
+            }
+            if layer.role != LayerRole::Bed && pack.anchor.is_some() {
+                return Err(invalid(format!(
+                    "pack {} carries an anchor; an anchor may ride only the bed layer",
+                    pack.id
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// What one entry delivers: a theme pack, or a composite.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EntryDelivery {
+    Pack { pack_id: String },
+    Composite { composite: CompositeSpec },
+}
+
+/// One playlist entry (SPEC §4.2). For a composite entry the
+/// composite's own intensity/duration govern and the entry-level
+/// pair must agree with them (validation refuses a disagreement:
+/// an entry states its terms once).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlaylistEntry {
+    pub delivery: EntryDelivery,
+    pub intensity: Intensity,
+    pub duration_minutes: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<BuildSpec>,
+}
+
+/// What a user submits to author a playlist (mirrors
+/// [`ProfileDraft`]): the definition whole, validated
+/// server-side. The server stamps schema, revision, and time.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlaylistDraft {
+    pub playlist_id: PlaylistId,
+    pub entries: Vec<PlaylistEntry>,
+    pub end_state: EndState,
+    #[serde(default)]
+    pub title: Option<PlaylistTitle>,
+}
+
+/// A stored playlist: a typed, immutable artefact bound to one
+/// consent profile (SPEC §1.1). Changing one means deleting it
+/// and creating its successor.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlaylistDefinition {
+    pub schema: u32,
+    pub playlist_id: PlaylistId,
+    pub profile_id: ProfileId,
+    pub revision: u32,
+    pub created_at_unix_s: i64,
+    pub entries: Vec<PlaylistEntry>,
+    pub end_state: EndState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<PlaylistTitle>,
+}
+
+impl PlaylistDefinition {
+    /// Build a stored definition from a draft. Canon-dependent
+    /// validation is [`PlaylistDefinition::validate`].
+    pub fn create(id: ProfileId, draft: PlaylistDraft, now_unix_s: i64) -> MesmerResult<Self> {
+        Ok(PlaylistDefinition {
+            schema: PLAYLIST_SCHEMA,
+            playlist_id: draft.playlist_id,
+            profile_id: id,
+            revision: 1,
+            created_at_unix_s: now_unix_s,
+            entries: draft.entries,
+            end_state: draft.end_state,
+            title: draft.title,
+        })
+    }
+
+    /// The classes one entry delivers, derived from canon.
+    pub fn entry_classes(&self, canon: &Canon, index: usize) -> BTreeSet<EffectClass> {
+        match &self.entries[index].delivery {
+            EntryDelivery::Pack { pack_id } => canon
+                .theme_pack(pack_id)
+                .map(|p| p.classes.iter().copied().collect())
+                .unwrap_or_default(),
+            EntryDelivery::Composite { composite } => composite.request(canon).classes,
+        }
+    }
+
+    /// The anchor cue one entry installs, if any: a pack's own
+    /// anchor, or a composite's bed layer's anchor.
+    pub fn entry_anchor_cue(&self, canon: &Canon, index: usize) -> Option<String> {
+        match &self.entries[index].delivery {
+            EntryDelivery::Pack { pack_id } => canon
+                .theme_pack(pack_id)
+                .and_then(|p| p.anchor.as_ref().map(|a| a.cue.clone())),
+            EntryDelivery::Composite { composite } => composite
+                .layer_pack(canon, LayerRole::Bed)
+                .and_then(|p| p.anchor.as_ref().map(|a| a.cue.clone())),
+        }
+    }
+
+    /// Whether one entry's delivery persists its anchor
+    /// installation (its delivery carries trigger persistence).
+    pub fn entry_persists(&self, canon: &Canon, index: usize) -> bool {
+        match &self.entries[index].delivery {
+            EntryDelivery::Pack { pack_id } => canon
+                .theme_pack(pack_id)
+                .is_some_and(|p| p.trigger_persistence),
+            EntryDelivery::Composite { composite } => composite.request(canon).trigger_persistence,
+        }
+    }
+
+    /// The request one entry will be judged by (SPEC §1.2): the
+    /// delivery's own request, programme-scoped when the
+    /// playlist's end state persists (SPEC §2.2 rule 5).
+    pub fn entry_request(&self, canon: &Canon, index: usize) -> SessionRequest {
+        let entry = &self.entries[index];
+        let mut request = match &entry.delivery {
+            EntryDelivery::Pack { pack_id } => {
+                let pack = canon
+                    .theme_pack(pack_id)
+                    .expect("validated playlist names only canon packs");
+                pack_request(pack, entry.intensity, entry.duration_minutes)
+            }
+            EntryDelivery::Composite { composite } => composite.request(canon),
+        };
+        if self.end_state.persistence == EndStatePersistence::Programme {
+            request.programme_scoped = true;
+        }
+        request
+    }
+
+    /// Full structural validation against canon (SPEC §2.1,
+    /// §2.2): bounds, pack existence, the compounding rules, and
+    /// end-state reachability as authored. Profile-dependent
+    /// judgement is the gate's (`gate::judge_playlist`). Errors
+    /// carry the feature's codes: structural failures are
+    /// `MESMER-PLAYLIST-INVALID`; a compounding or persistence
+    /// claim on session-only scope is `MESMER-PLAYLIST-SCOPE`.
+    pub fn validate(&self, canon: &Canon) -> MesmerResult<()> {
+        let invalid = |detail: String| MesmerError::new("MESMER-PLAYLIST-INVALID", detail);
+        let scope_err = |detail: String| MesmerError::new("MESMER-PLAYLIST-SCOPE", detail);
+        if self.schema != PLAYLIST_SCHEMA {
+            return Err(invalid(format!(
+                "unsupported playlist schema {}",
+                self.schema
+            )));
+        }
+        let max_entries = canon.playlists.max_entries_per_playlist;
+        if self.entries.is_empty() || self.entries.len() > max_entries {
+            return Err(invalid(format!(
+                "a playlist carries 1..={max_entries} entries, not {}",
+                self.entries.len()
+            )));
+        }
+        for (i, entry) in self.entries.iter().enumerate() {
+            if entry.duration_minutes == 0 {
+                return Err(invalid(format!("entry {i} duration_minutes must be >= 1")));
+            }
+            match &entry.delivery {
+                EntryDelivery::Pack { pack_id } => {
+                    if canon.theme_pack(pack_id).is_none() {
+                        return Err(invalid(format!(
+                            "entry {i} names no theme pack {pack_id:?}"
+                        )));
+                    }
+                }
+                EntryDelivery::Composite { composite } => {
+                    composite.validate(canon)?;
+                    if entry.intensity != composite.intensity
+                        || entry.duration_minutes != composite.duration_minutes
+                    {
+                        return Err(invalid(format!(
+                            "entry {i} states its intensity and duration twice and they differ"
+                        )));
+                    }
+                }
+            }
+        }
+        // Compounding (SPEC §2.2): backward references only,
+        // monotonic depth in canon-bounded steps, scope honesty,
+        // anchor continuity — all within this playlist alone.
+        let mut previous_target: Option<u8> = None;
+        let mut installed: Vec<(usize, String)> = Vec::new();
+        for (i, entry) in self.entries.iter().enumerate() {
+            let classes = self.entry_classes(canon, i);
+            // Scope honesty (SPEC §2.2): an entry whose delivery
+            // claims persistence while naming any session-only
+            // class may not compound — the same dishonesty the
+            // gate's class check refuses at delivery time, here
+            // refused at authoring with the playlist scope code.
+            let request = self.entry_request(canon, i);
+            let scope_dishonest = request.trigger_persistence
+                && classes
+                    .iter()
+                    .any(|c| canon.class(*c).scope == Scope::SessionOnly);
+            if let Some(build) = &entry.build {
+                let mut seen: BTreeSet<u16> = BTreeSet::new();
+                for &back in &build.builds_on {
+                    if !seen.insert(back) {
+                        return Err(invalid(format!("entry {i} builds on entry {back} twice")));
+                    }
+                    if usize::from(back) >= i {
+                        return Err(invalid(format!(
+                            "entry {i} builds on entry {back}: references are backward only"
+                        )));
+                    }
+                    let back_classes = self.entry_classes(canon, usize::from(back));
+                    if !back_classes.is_empty()
+                        && back_classes
+                            .iter()
+                            .all(|c| canon.class(*c).scope == Scope::SessionOnly)
+                    {
+                        return Err(scope_err(format!(
+                            "entry {i} builds on entry {back}, whose classes are session-only: nothing of it carries"
+                        )));
+                    }
+                }
+                let target = build.depth_target.get();
+                if let Some(prev) = previous_target {
+                    if target < prev {
+                        return Err(invalid(format!(
+                            "entry {i} depth_target {target} falls below the previous target {prev}: depth is monotonic"
+                        )));
+                    }
+                    if target - prev > canon.playlists.max_depth_step {
+                        return Err(invalid(format!(
+                            "entry {i} depth step {} exceeds the canon bound {}",
+                            target - prev,
+                            canon.playlists.max_depth_step
+                        )));
+                    }
+                }
+                let raised = target > previous_target.unwrap_or(INTENSITY_MIN);
+                let claims = !build.builds_on.is_empty() || !build.anchors.is_empty() || raised;
+                if claims && scope_dishonest {
+                    return Err(scope_err(format!(
+                        "entry {i} declares a build while claiming persistence over a session-only class: nothing of it may persist"
+                    )));
+                }
+                if build.anchors.len() > ANCHOR_CUES_PER_SPEC_MAX {
+                    return Err(invalid(format!(
+                        "entry {i} names more than {ANCHOR_CUES_PER_SPEC_MAX} anchor cues"
+                    )));
+                }
+                for cue in &build.anchors {
+                    check_anchor_cue(cue)?;
+                    let Some(&(installer, _)) = installed.iter().find(|(_, c)| c == cue) else {
+                        return Err(invalid(format!(
+                            "entry {i} names anchor {cue:?}, which no earlier entry installs"
+                        )));
+                    };
+                    if !self.entry_persists(canon, installer) {
+                        return Err(scope_err(format!(
+                            "entry {i} names anchor {cue:?}, whose installation does not persist"
+                        )));
+                    }
+                }
+                // Compounding is a property of the sequence
+                // (SPEC §2.2 rule 4): an entry may build only
+                // on entries whose delivery persists.
+                for &back in &build.builds_on {
+                    if !self.entry_persists(canon, usize::from(back)) {
+                        return Err(scope_err(format!(
+                            "entry {i} builds on entry {back}, whose delivery does not persist"
+                        )));
+                    }
+                }
+                previous_target = Some(target);
+            }
+            if let Some(cue) = self.entry_anchor_cue(canon, i) {
+                installed.push((i, cue));
+            }
+        }
+        // The end state, as authored (SPEC §2.2 rule 2, §2.4).
+        if self.end_state.classes.is_empty() {
+            return Err(invalid("the end state names no class".to_string()));
+        }
+        let delivered: BTreeSet<EffectClass> = (0..self.entries.len())
+            .flat_map(|i| self.entry_classes(canon, i))
+            .collect();
+        for class in &self.end_state.classes {
+            if !delivered.contains(class) {
+                return Err(invalid(format!(
+                    "end state class {class} is delivered by no entry"
+                )));
+            }
+        }
+        if self.end_state.anchors.len() > ANCHOR_CUES_PER_SPEC_MAX {
+            return Err(invalid(format!(
+                "the end state names more than {ANCHOR_CUES_PER_SPEC_MAX} anchor cues"
+            )));
+        }
+        for cue in &self.end_state.anchors {
+            check_anchor_cue(cue)?;
+            if !installed.iter().any(|(_, c)| c == cue) {
+                return Err(invalid(format!(
+                    "end state anchor {cue:?} is installed by no entry"
+                )));
+            }
+        }
+        let Some(final_build) = &self.entries.last().and_then(|e| e.build.as_ref()) else {
+            return Err(invalid(
+                "the final entry must declare the end state's depth target".to_string(),
+            ));
+        };
+        if final_build.depth_target != self.end_state.depth_target {
+            return Err(invalid(format!(
+                "the final entry's depth_target {} is not the end state's {}",
+                final_build.depth_target.get(),
+                self.end_state.depth_target.get()
+            )));
+        }
+        Ok(())
+    }
+}
+
+fn check_anchor_cue(cue: &str) -> MesmerResult<()> {
+    if cue.is_empty() || cue.chars().count() > ANCHOR_CUE_CHARS_MAX {
+        return Err(MesmerError::new(
+            "MESMER-PLAYLIST-INVALID",
+            format!("anchor cue must be 1..={ANCHOR_CUE_CHARS_MAX} chars"),
+        ));
+    }
+    Ok(())
 }

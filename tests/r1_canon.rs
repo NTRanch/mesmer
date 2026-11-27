@@ -35,6 +35,7 @@ fn mutated(file: &str, from: &str, to: &str) -> Result<Canon, mesmer::canon::Can
         patterns: &patterns,
         encoding: &encoding,
         themes: base.themes,
+        playlists: base.playlists,
         engagement: base.engagement,
         blocks: blocks
             .iter()

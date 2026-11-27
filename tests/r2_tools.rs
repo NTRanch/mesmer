@@ -512,7 +512,9 @@ fn v_wire_discover_list_and_call() {
         "{d}"
     );
     let l = s.request(2, "tools/list", json!({}));
-    assert_eq!(l["result"]["tools"].as_array().unwrap().len(), 9, "{l}");
+    // 1.1.0: the surface grew from 9 tools to 15 (playlists
+    // SPEC §4.4, Owner rulings 2026-11-27 07:08/07:09 PT).
+    assert_eq!(l["result"]["tools"].as_array().unwrap().len(), 15, "{l}");
     let c = s.request(
         3,
         "tools/call",

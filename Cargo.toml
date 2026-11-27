@@ -1,6 +1,6 @@
 [package]
 name = "mesmer"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "mesmer — a deterministic, consent-gated hypnosis content composer MCP server (Nice Thoughts Ranch). Production: canon + consent gate + theme packs + engagement trigger. Modern MCP era only (2026-07-28)."
